@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use App\Models\Usuario;
 
 class UsuarioController extends Controller
@@ -13,7 +14,9 @@ class UsuarioController extends Controller
      */
     public function index()
     {
-        return Usuario::all();
+        return Usuario::query()
+            ->orderBy('id')       // ordenação estável
+            ->paginate(10);       // resposta paginada
     }
 
     /**
@@ -21,7 +24,16 @@ class UsuarioController extends Controller
      */
     public function store(Request $request)
     {
-        return Usuario::create($request->all());
+        $data = $request->validate([
+            'nome'   => ['required', 'string', 'max:100', 'unique:usuarios,nome'],
+            'email'  => ['required', 'string', 'email', 'max:150', 'unique:usuarios,email'],
+            'senha'  => ['required', 'string', 'max:50'],   // depois podemos hashear
+            'foto'   => ['required', 'string', 'max:200'],
+            'pontos' => ['sometimes', 'integer', 'min:0'],
+        ]);
+
+        $usuario = Usuario::create($data);  // INSERT com fillable
+        return response()->json($usuario, 201); // HTTP 201 Created
     }
 
     /**
@@ -29,7 +41,7 @@ class UsuarioController extends Controller
      */
     public function show(string $id)
     {
-        return Usuario::findOrFail($id);
+        return Usuario::findOrFail($id); // 404 automático se não existir
     }
 
     /**
@@ -38,8 +50,17 @@ class UsuarioController extends Controller
     public function update(Request $request, string $id)
     {
         $usuario = Usuario::findOrFail($id);
-        $usuario->update($request->all());
-        return $usuario;
+
+        $data = $request->validate([
+            'nome'   => ['sometimes', 'string', 'max:100', Rule::unique('usuarios', 'nome')->ignore($usuario->id)],
+            'email'  => ['sometimes', 'string', 'email', 'max:150', Rule::unique('usuarios', 'email')->ignore($usuario->id)],
+            'senha'  => ['sometimes', 'string', 'max:50'],
+            'foto'   => ['sometimes', 'string', 'max:200'],
+            'pontos' => ['sometimes', 'integer', 'min:0'],
+        ]);
+
+        $usuario->update($data);   // UPDATE ...
+        return $usuario;           // JSON do registro atualizado
     }
 
     /**
@@ -48,7 +69,7 @@ class UsuarioController extends Controller
     public function destroy(string $id)
     {
         $usuario = Usuario::findOrFail($id);
-        $usuario->delete();
-        return response()->noContent(); //http 204
+        $usuario->delete();        // DELETE ...
+        return response()->noContent(); // HTTP 204
     }
 }

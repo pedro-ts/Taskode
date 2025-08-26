@@ -13,7 +13,9 @@ class ProjetoController extends Controller
      */
     public function index()
     {
-        //
+        return Projeto::query()
+            ->withCount('tarefas')
+            ->paginate(10);
     }
 
     /**
@@ -21,7 +23,16 @@ class ProjetoController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $data = $request->validate([
+            'nome'       => 'required|string|max:100',
+            'descricao'  => 'nullable|string',
+            'linguagens' => 'required|array',
+            'publico'    => 'required|integer|in:0,1',
+            'id_user'    => 'required|integer|exists:usuarios,id',
+        ]);
+
+        $projeto = Projeto::create($data);
+        return response()->json($projeto, 201);
     }
 
     /**
@@ -29,7 +40,8 @@ class ProjetoController extends Controller
      */
     public function show(string $id)
     {
-        //
+        return $projeto = Projeto::findOrFail($id);
+        // return $projeto->load('dono:id,nome,email,pontos', 'tarefas');
     }
 
     /**
@@ -37,7 +49,18 @@ class ProjetoController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $projeto = Projeto::findOrFail($id);
+
+        $data = $request->validate([
+            'nome'       => 'sometimes|string|max:100',
+            'descricao'  => 'nullable|string',
+            'linguagens' => 'sometimes|array',
+            'publico'    => 'sometimes|integer|in:0,1',
+            // normalmente não se troca id_user aqui; se precisar, valide como no store
+        ]);
+
+        $projeto->update($data);
+        return $projeto->loadCount('tarefas');
     }
 
     /**
@@ -45,6 +68,8 @@ class ProjetoController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $projeto = Projeto::findOrFail($id);
+        $projeto->delete();
+        return response()->noContent(); // 204
     }
 }
